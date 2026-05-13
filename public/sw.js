@@ -1,12 +1,13 @@
 // CineVault Service Worker
-const CACHE_NAME = "cinevault-v1";
-const STATIC_ASSETS = [
-  "/",
-  "/index.html",
-];
+const CACHE_NAME = "cinevault-v2";
+const BASE_PATH = self.location.pathname.replace(/sw\.js$/, "");
 
 // 安装：预缓存静态资源
 self.addEventListener("install", (event) => {
+  const STATIC_ASSETS = [
+    BASE_PATH,
+    BASE_PATH + "index.html",
+  ];
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
