@@ -37,14 +37,17 @@ export default function DashboardPage() {
         });
         setMonthlyData(Object.entries(months).map(([name, value]) => ({ name, value })));
 
-        // 动态统计类型分布 + 总时长
+        // 动态统计类型分布 + 总时长（Promise.all 并行查询，性能提升）
         const genreCount: Record<string, number> = {};
         let totalMinutes = 0;
-        for (const m of watchedList) {
-          const detail =
+        const details = await Promise.all(
+          watchedList.map((m) =>
             m.media_type === "movie"
-              ? await getMovieByTmdbId(m.tmdb_id)
-              : await getTvShowByTmdbId(m.tmdb_id);
+              ? getMovieByTmdbId(m.tmdb_id)
+              : getTvShowByTmdbId(m.tmdb_id)
+          )
+        );
+        details.forEach((detail) => {
           if (detail) {
             const gens: any[] = detail.genres || [];
             gens.forEach((g: any) => {
@@ -56,7 +59,7 @@ export default function DashboardPage() {
               0;
             totalMinutes += rt;
           }
-        }
+        });
         const sorted = Object.entries(genreCount)
           .sort((a: any, b: any) => b[1] - a[1])
           .slice(0, 5)

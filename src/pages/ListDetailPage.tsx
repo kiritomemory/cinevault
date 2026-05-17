@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronLeft, Trash2, X } from "lucide-react";
 import { getLists, getListItems, removeFromList, deleteList } from "@/services/db";
-import { getMovieByTmdbId, getTvShowByTmdbId } from "@/services/db";
-import { getImageUrl } from "@/services/tmdb";
+import { getMovieByTmdbId, getTvShowByTmdbId, saveMovie, saveTvShow } from "@/services/db";
+import { getImageUrl, getMovieDetails, getTvDetails } from "@/services/tmdb";
 import { useAppStore } from "@/stores/appStore";
 import type { List, ListItem } from "@/types";
 
@@ -31,10 +31,24 @@ export default function ListDetailPage() {
         // Enrich items with movie/tv details from IndexedDB
         const enriched: EnrichedItem[] = await Promise.all(
           its.map(async (item) => {
-            const detail =
+            let detail =
               item.media_type === "movie"
                 ? await getMovieByTmdbId(item.tmdb_id)
                 : await getTvShowByTmdbId(item.tmdb_id);
+            // 若 IndexedDB 无缓存，尝试从 TMDB API 补全基本信息
+            if (!detail) {
+              try {
+                if (item.media_type === "movie") {
+                  detail = await getMovieDetails(item.tmdb_id);
+                  if (detail) await saveMovie(detail);
+                } else {
+                  detail = await getTvDetails(item.tmdb_id);
+                  if (detail) await saveTvShow(detail);
+                }
+              } catch {
+                // API 失败时静默，显示 TMDB ID 作为兜底
+              }
+            }
             return {
               ...item,
               title: detail?.title || detail?.name || `TMDB ${item.tmdb_id}`,
@@ -137,8 +151,9 @@ export default function ListDetailPage() {
                 onClick={() => handleView(item)}
               >
                 <img
-                  src={getImageUrl(item.poster_path ?? null, "w342") || ""}
+                  src={getImageUrl(item.poster_path ?? null, "w342") || "/placeholder-poster.svg"}
                   alt={formatTitle(item)}
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder-poster.svg"; }}
                   className="w-full aspect-[2/3] rounded-lg object-cover bg-muted transition-transform group-hover:scale-[1.02]"
                 />
                 <div className="mt-1.5 px-0.5">

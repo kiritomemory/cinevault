@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, Film, Tv, User, Clock, AlertCircle, RefreshCw } from "lucide-react";
 import { searchMulti, searchMovies, searchTv, searchPeople, getImageUrl } from "@/services/tmdb";
 import { addSearchHistory, getSearchHistory, clearSearchHistory } from "@/services/db";
@@ -9,6 +9,7 @@ import type { Movie, TVShow, Person } from "@/types";
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const urlQuery = searchParams.get("q") || "";
   const setStoreQuery = useAppStore((s) => s.setSearchQuery);
   const [query, setQuery] = useState(urlQuery);
@@ -176,8 +177,8 @@ export default function SearchPage() {
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     {people.map((p) => (
-                      <div key={p.id} className="flex items-center gap-3 p-2 rounded-lg bg-card border border-border hover:bg-accent/50 transition-colors cursor-pointer">
-                        <img src={getImageUrl(p.profile_path, "w185") || ""} alt={p.name} className="w-12 h-12 rounded-full object-cover bg-muted" />
+                      <div key={p.id} onClick={() => navigate(`/person/${p.id}`)} className="flex items-center gap-3 p-2 rounded-lg bg-card border border-border hover:bg-accent/50 transition-colors cursor-pointer">
+                        <img src={getImageUrl(p.profile_path, "w185") || "/placeholder-person.svg"} alt={p.name} onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder-person.svg"; }} className="w-12 h-12 rounded-full object-cover bg-muted" />
                         <div>
                           <p className="text-sm font-medium">{p.name}</p>
                           <p className="text-xs text-muted-foreground">{p.known_for_department}</p>
@@ -193,8 +194,8 @@ export default function SearchPage() {
             <div className="flex flex-wrap gap-3">
               {displayResults.map((r) =>
                 r.media_type === "person" ? (
-                  <div key={r.id} className="flex items-center gap-3 p-2 rounded-lg bg-card border border-border hover:bg-accent/50 transition-colors cursor-pointer w-full max-w-sm">
-                    <img src={getImageUrl((r as Person).profile_path, "w185") || ""} alt={(r as Person).name} className="w-12 h-12 rounded-full object-cover bg-muted" />
+                  <div key={r.id} onClick={() => navigate(`/person/${r.id}`)} className="flex items-center gap-3 p-2 rounded-lg bg-card border border-border hover:bg-accent/50 transition-colors cursor-pointer w-full max-w-sm">
+                    <img src={getImageUrl((r as Person).profile_path, "w185") || "/placeholder-person.svg"} alt={(r as Person).name} onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder-person.svg"; }} className="w-12 h-12 rounded-full object-cover bg-muted" />
                     <div>
                       <p className="text-sm font-medium">{(r as Person).name}</p>
                       <p className="text-xs text-muted-foreground">{(r as Person).known_for_department}</p>

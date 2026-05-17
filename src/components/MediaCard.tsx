@@ -38,8 +38,9 @@ export default function MediaCard({ item, size = "md" }: Props) {
     >
       <div className="relative rounded-lg overflow-hidden transition-all duration-200 group-hover:shadow-xl">
         <img
-          src={getImageUrl(item.poster_path, "w342") || ""}
+          src={getImageUrl(item.poster_path, "w342") || "/placeholder-poster.svg"}
           alt={displayTitle}
+          onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder-poster.svg"; }}
           className={`w-full ${sizes[size].img} object-cover bg-muted`}
           loading="lazy"
         />

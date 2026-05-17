@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, RefreshCw, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { getPopularMovies, getNowPlayingMovies, getUpcomingMovies, getTopRatedMovies, getTrending } from "@/services/tmdb";
-import { saveMovie } from "@/services/db";
+import {
+  getPopularMovies, getNowPlayingMovies, getUpcomingMovies, getTopRatedMovies, getTrending,
+  getPopularTv, getTopRatedTv, getAiringTodayTv, getOnTheAirTv,
+} from "@/services/tmdb";
+import { saveMovie, saveTvShow } from "@/services/db";
 import { useAppStore } from "@/stores/appStore";
 import type { Movie, TVShow } from "@/types";
 
-type Category = "popular" | "nowPlaying" | "upcoming" | "topRated" | "trending";
+type MediaGroup = "movie" | "tv";
+type MovieCat = "popular" | "nowPlaying" | "upcoming" | "topRated" | "trending";
+type TvCat = "tvPopular" | "tvTopRated" | "tvAiringToday" | "tvOnTheAir" | "tvTrending";
+type Category = MovieCat | TvCat;
 
-const CATEGORIES: { key: Category; label: string; fetch: (page?: number) => Promise<any> }[] = [
+const MOVIE_CATEGORIES: { key: MovieCat; label: string; fetch: (page?: number) => Promise<any> }[] = [
   { key: "popular",    label: "流行趋势",   fetch: getPopularMovies },
   { key: "nowPlaying", label: "正在热映",   fetch: getNowPlayingMovies },
   { key: "upcoming",   label: "即将上映",   fetch: getUpcomingMovies },
@@ -16,12 +22,22 @@ const CATEGORIES: { key: Category; label: string; fetch: (page?: number) => Prom
   { key: "trending",   label: "本周趋势",   fetch: (p) => getTrending("week", p) },
 ];
 
+const TV_CATEGORIES: { key: TvCat; label: string; fetch: (page?: number) => Promise<any> }[] = [
+  { key: "tvPopular",     label: "热门剧集", fetch: getPopularTv },
+  { key: "tvTopRated",    label: "高分剧集", fetch: getTopRatedTv },
+  { key: "tvAiringToday", label: "今日播出", fetch: getAiringTodayTv },
+  { key: "tvOnTheAir",    label: "正在连载", fetch: getOnTheAirTv },
+  { key: "tvTrending",    label: "本周剧集", fetch: (p) => getTrending("week", p) },
+];
+
 export default function DiscoverPage() {
   const navigate = useNavigate();
   const searchQuery = useAppStore((s) => s.searchQuery);
   const setSearchQuery = useAppStore((s) => s.setSearchQuery);
 
-  const [activeTab, setActiveTab] = useState<Category>("popular");
+  const [mediaGroup, setMediaGroup] = useState<MediaGroup>("movie");
+  const [activeMovieCat, setActiveMovieCat] = useState<MovieCat>("popular");
+  const [activeTvCat, setActiveTvCat] = useState<TvCat>("tvPopular");
   const [items, setItems] = useState<(Movie | TVShow)[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,16 +45,23 @@ export default function DiscoverPage() {
   const [hasMore, setHasMore] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
 
-  const fetchCategory = async (cat: Category, p = 1) => {
+  const activeTab = mediaGroup === "movie" ? activeMovieCat : activeTvCat;
+  const currentCategories = mediaGroup === "movie" ? MOVIE_CATEGORIES : TV_CATEGORIES;
+
+  const fetchCategory = async (cat: Category, group: MediaGroup, p = 1) => {
     setLoading(true);
     setError(null);
     try {
-      const catConfig = CATEGORIES.find((c) => c.key === cat)!;
+      const allCats = [...MOVIE_CATEGORIES, ...TV_CATEGORIES];
+      const catConfig = allCats.find((c) => c.key === cat)!;
       const data = await catConfig.fetch(p);
-      const mapped = (data.results || []).map((m: any) => ({
-        ...m,
-        media_type: m.media_type || "movie",
-      }));
+      const isTvCat = group === "tv";
+      const mapped = (data.results || [])
+        .filter((m: any) => isTvCat ? m.media_type !== "movie" : m.media_type !== "tv")
+        .map((m: any) => ({
+          ...m,
+          media_type: m.media_type || (isTvCat ? "tv" : "movie"),
+        }));
       if (p === 1) {
         setItems(mapped);
       } else {
@@ -46,8 +69,14 @@ export default function DiscoverPage() {
       }
       setHasMore(p < (data.total_pages || 1));
       setPage(p);
-      if (p === 1 && cat === "popular") {
-        for (const m of (data.results || []).slice(0, 20)) await saveMovie(m);
+      // 缓存前20条到 IndexedDB
+      if (p === 1) {
+        const toCache = (data.results || []).slice(0, 20);
+        if (isTvCat) {
+          for (const tv of toCache) saveTvShow(tv).catch(() => {});
+        } else {
+          for (const m of toCache) saveMovie(m).catch(() => {});
+        }
       }
     } catch (e: any) {
       const msg = e?.message || "未知错误";
@@ -65,18 +94,26 @@ export default function DiscoverPage() {
   };
 
   useEffect(() => {
-    fetchCategory(activeTab);
-  }, [activeTab]);
+    fetchCategory(activeTab, mediaGroup);
+  }, [activeMovieCat, activeTvCat, mediaGroup]);
 
-  const handleTabChange = (cat: Category) => {
-    if (cat !== activeTab) {
-      setActiveTab(cat);
+  const handleGroupChange = (g: MediaGroup) => {
+    if (g !== mediaGroup) {
+      setMediaGroup(g);
       setItems([]);
     }
   };
 
+  const handleTabChange = (cat: Category) => {
+    if (mediaGroup === "movie") {
+      if (cat !== activeMovieCat) { setActiveMovieCat(cat as MovieCat); setItems([]); }
+    } else {
+      if (cat !== activeTvCat) { setActiveTvCat(cat as TvCat); setItems([]); }
+    }
+  };
+
   const handleLoadMore = () => {
-    fetchCategory(activeTab, page + 1);
+    fetchCategory(activeTab, mediaGroup, page + 1);
   };
 
   const handleSearch = (q: string) => {
@@ -93,9 +130,24 @@ export default function DiscoverPage() {
 
       {/* Tab 导航 + 搜索框 */}
       <div className="sticky top-0 z-10 glass-panel px-6">
+        {/* 电影 / 剧集 切换 */}
+        <div className="flex items-center gap-2 pt-3 pb-1">
+          <button
+            onClick={() => handleGroupChange("movie")}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${mediaGroup === "movie" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-accent/80"}`}
+          >
+            🎬 电影
+          </button>
+          <button
+            onClick={() => handleGroupChange("tv")}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${mediaGroup === "tv" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-accent/80"}`}
+          >
+            📺 剧集
+          </button>
+        </div>
         <div className="flex items-center justify-between gap-4">
           <div className="flex gap-1">
-            {CATEGORIES.map((cat) => (
+            {currentCategories.map((cat) => (
               <button
                 key={cat.key}
                 onClick={() => handleTabChange(cat.key)}
@@ -140,7 +192,7 @@ export default function DiscoverPage() {
             <h2 className="text-lg font-semibold text-foreground mb-2">数据加载失败</h2>
             <p className="text-sm text-muted-foreground mb-6">{error}</p>
             <button
-              onClick={() => fetchCategory(activeTab)}
+              onClick={() => fetchCategory(activeTab, mediaGroup)}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
               <RefreshCw size={16} />
@@ -225,7 +277,6 @@ function BannerSection() {
   const next = (e: React.MouseEvent) => { e.stopPropagation(); setCurrent((prev) => (prev + 1) % banner.length); };
   const goToDetail = (e?: React.MouseEvent) => { if (e) e.stopPropagation(); window.location.hash = `/movie/${banner[current].id}`; };
 
-  // 加载骨架屏
   if (loading) {
     return (
       <div className="relative h-[280px] overflow-hidden flex-shrink-0 bg-muted">
@@ -271,12 +322,8 @@ function BannerSection() {
           </div>
         </div>
       ))}
-
-      {/* 左右箭头导航 */}
       <button onClick={prev} className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur text-xl font-bold" aria-label="上一张">‹</button>
       <button onClick={next} className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur text-xl font-bold" aria-label="下一张">›</button>
-
-      {/* 指示器（胶囊样式 + 居中） */}
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
         {banner.map((_, i) => (
           <button
@@ -291,7 +338,7 @@ function BannerSection() {
   );
 }
 
-// 媒体卡片（内联版本，无需导入）
+// 媒体卡片（内联版本）
 import { getImageUrl } from "@/services/tmdb";
 import { Star } from "lucide-react";
 
@@ -308,8 +355,9 @@ function MediaCardV2({ item }: { item: Movie | TVShow }) {
     >
       <div className="relative rounded-lg overflow-hidden transition-all duration-200 group-hover:shadow-lg">
         <img
-          src={getImageUrl(item.poster_path, "w342") || ""}
+          src={getImageUrl(item.poster_path, "w342") || "/placeholder-poster.svg"}
           alt={title}
+          onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder-poster.svg"; }}
           className="w-full aspect-[2/3] object-cover bg-muted"
           loading="lazy"
         />

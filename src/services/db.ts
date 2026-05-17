@@ -168,12 +168,29 @@ export async function getAllMarkings(): Promise<any[]> {
   return promisify(tx.objectStore("user_markings").getAll());
 }
 
+/**
+ * 获取系统清单 ID 映射：{ watched: number, watchlist: number, favorite: number }
+ * 在 initSystemLists 保证系统清单已存在后调用。
+ */
+async function getSystemListIds(): Promise<{ watched: number | null; watchlist: number | null; favorite: number | null }> {
+  const lists = await getLists();
+  const find = (name: string) => lists.find((l: any) => l.is_system && l.name === name)?.id ?? null;
+  return { watched: find("已看"), watchlist: find("想看的"), favorite: find("收藏") };
+}
+
 export async function setMarking(tmdbId: number, mediaType: "movie" | "tv", data: Partial<any>) {
   const d = await openDb();
   const tx = d.transaction("user_markings", "readwrite");
   const store = tx.objectStore("user_markings");
   const idx = store.index("tmdb_media");
   const existing = await promisify(idx.get([tmdbId, mediaType]));
+
+  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+  let prev_watched = existing?.is_watched ? 1 : 0;
+  let prev_watchlist = existing?.is_watchlist ? 1 : 0;
+  let prev_favorite = existing?.is_favorite ? 1 : 0;
+
   if (existing) {
     const updated = { ...existing };
     if (data.is_watched !== undefined) updated.is_watched = data.is_watched ? 1 : 0;
@@ -181,11 +198,16 @@ export async function setMarking(tmdbId: number, mediaType: "movie" | "tv", data
     if (data.is_favorite !== undefined) updated.is_favorite = data.is_favorite ? 1 : 0;
     if (data.user_rating !== undefined) updated.user_rating = data.user_rating;
     if (data.review_text !== undefined) updated.review_text = data.review_text;
-    if (data.watch_date !== undefined) updated.watch_date = data.watch_date;
+    // watch_date：手动传入优先；标记已看时自动写今日日期；取消已看时清空
+    if (data.watch_date !== undefined) {
+      updated.watch_date = data.watch_date;
+    } else if (data.is_watched !== undefined) {
+      updated.watch_date = data.is_watched ? today : null;
+    }
     updated.updated_at = new Date().toISOString();
     await promisify(store.put(updated));
   } else {
-    await promisify(store.add({
+    const newRecord: any = {
       tmdb_id: tmdbId,
       media_type: mediaType,
       is_watched: data.is_watched ? 1 : 0,
@@ -193,10 +215,31 @@ export async function setMarking(tmdbId: number, mediaType: "movie" | "tv", data
       is_favorite: data.is_favorite ? 1 : 0,
       user_rating: data.user_rating ?? null,
       review_text: data.review_text ?? null,
-      watch_date: data.watch_date ?? null,
       updated_at: new Date().toISOString(),
-    }));
+    };
+    // 新建时若直接标记已看，自动写今日日期
+    newRecord.watch_date = data.watch_date ?? (data.is_watched ? today : null);
+    await promisify(store.add(newRecord));
   }
+
+  // ── 同步系统清单 list_items ──
+  const sysIds = await getSystemListIds();
+  const new_watched = data.is_watched !== undefined ? (data.is_watched ? 1 : 0) : prev_watched;
+  const new_watchlist = data.is_watchlist !== undefined ? (data.is_watchlist ? 1 : 0) : prev_watchlist;
+  const new_favorite = data.is_favorite !== undefined ? (data.is_favorite ? 1 : 0) : prev_favorite;
+
+  const syncList = async (listId: number | null, wasOn: number, isOn: number) => {
+    if (listId === null) return;
+    if (!wasOn && isOn) {
+      await addToList(listId, tmdbId, mediaType);
+    } else if (wasOn && !isOn) {
+      await removeFromList(listId, tmdbId, mediaType);
+    }
+  };
+
+  await syncList(sysIds.watched, prev_watched, new_watched);
+  await syncList(sysIds.watchlist, prev_watchlist, new_watchlist);
+  await syncList(sysIds.favorite, prev_favorite, new_favorite);
 }
 
 export async function addSearchHistory(keyword: string) {
@@ -225,6 +268,32 @@ export async function clearSearchHistory() {
   const d = await openDb();
   const tx = d.transaction("search_history", "readwrite");
   await promisify(tx.objectStore("search_history").clear());
+}
+
+/**
+ * 批量导入 markings 数据（用于数据恢复/导入）
+ * 已存在的条目会被 merge 覆盖，新条目直接写入
+ */
+export async function importMarkings(records: any[]): Promise<{ imported: number; skipped: number }> {
+  let imported = 0;
+  let skipped = 0;
+  for (const record of records) {
+    try {
+      if (!record.tmdb_id || !record.media_type) { skipped++; continue; }
+      await setMarking(record.tmdb_id, record.media_type, {
+        is_watched: record.is_watched,
+        is_watchlist: record.is_watchlist,
+        is_favorite: record.is_favorite,
+        user_rating: record.user_rating,
+        review_text: record.review_text,
+        watch_date: record.watch_date,
+      });
+      imported++;
+    } catch {
+      skipped++;
+    }
+  }
+  return { imported, skipped };
 }
 
 export async function getStats() {

@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { KeyRound, Moon, Sun, Monitor, Globe, Save, ExternalLink } from "lucide-react";
+import { useState, useRef } from "react";
+import { KeyRound, Moon, Sun, Monitor, Globe, Save, ExternalLink, Upload, Download, CheckCircle, AlertCircle } from "lucide-react";
 import { useAppStore } from "@/stores/appStore";
 import { setApiKey } from "@/services/tmdb";
+import { getAllMarkings, importMarkings } from "@/services/db";
 
 interface Props {
   setupMode?: boolean;
@@ -14,12 +15,49 @@ export default function SettingsPage({ setupMode }: Props) {
   const setTheme = useAppStore((s) => s.setTheme);
   const [apiKeyInput, setApiKeyInput] = useState(settings.apiKey);
   const [saved, setSaved] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
     updateSettings({ apiKey: apiKeyInput });
     setApiKey(apiKeyInput);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleExport = async () => {
+    const data = await getAllMarkings();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cinevault-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const json = JSON.parse(ev.target?.result as string);
+        const records = Array.isArray(json) ? json : [];
+        if (records.length === 0) {
+          setImportStatus({ type: "error", msg: "文件格式不正确或无有效数据" });
+          return;
+        }
+        const { imported, skipped } = await importMarkings(records);
+        setImportStatus({ type: "success", msg: `成功导入 ${imported} 条记录${skipped > 0 ? `，跳过 ${skipped} 条` : ""}` });
+        setTimeout(() => setImportStatus(null), 4000);
+      } catch {
+        setImportStatus({ type: "error", msg: "解析文件失败，请检查格式" });
+      }
+    };
+    reader.readAsText(file);
+    // 重置 input，允许同一文件再次选择
+    e.target.value = "";
   };
 
   if (setupMode) {
@@ -145,6 +183,44 @@ export default function SettingsPage({ setupMode }: Props) {
               </select>
             </div>
           </div>
+        </div>
+
+        {/* 数据管理 */}
+        <div className="p-4 rounded-xl glass-panel">
+          <div className="flex items-center gap-2 mb-3">
+            <Download size={18} className="text-primary" />
+            <h3 className="text-sm font-semibold">数据管理</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            导出备份你的观影记录（评分、标记、想看列表），或从备份文件恢复。
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent text-accent-foreground text-sm hover:bg-accent/80 transition-colors"
+            >
+              <Download size={14} /> 导出数据
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent text-accent-foreground text-sm hover:bg-accent/80 transition-colors"
+            >
+              <Upload size={14} /> 导入数据
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImportFile}
+              className="hidden"
+            />
+          </div>
+          {importStatus && (
+            <div className={`mt-3 flex items-center gap-2 text-xs p-2 rounded-lg ${importStatus.type === "success" ? "bg-green-500/10 text-green-600" : "bg-destructive/10 text-destructive"}`}>
+              {importStatus.type === "success" ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+              {importStatus.msg}
+            </div>
+          )}
         </div>
       </div>
     </div>

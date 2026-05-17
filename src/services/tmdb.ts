@@ -106,6 +106,22 @@ export async function getTopRatedMovies(page = 1) {
   return tmdbFetch("movie/top_rated", { page: String(page), region: getRegionParam() });
 }
 
+export async function getPopularTv(page = 1) {
+  return tmdbFetch("tv/popular", { page: String(page) });
+}
+
+export async function getTopRatedTv(page = 1) {
+  return tmdbFetch("tv/top_rated", { page: String(page) });
+}
+
+export async function getAiringTodayTv(page = 1) {
+  return tmdbFetch("tv/airing_today", { page: String(page) });
+}
+
+export async function getOnTheAirTv(page = 1) {
+  return tmdbFetch("tv/on_the_air", { page: String(page) });
+}
+
 export async function getTrending(timeWindow: "day" | "week" = "week", page = 1) {
   return tmdbFetch(`trending/all/${timeWindow}`, { page: String(page) });
 }
