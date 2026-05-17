@@ -1,5 +1,5 @@
 // CineVault Service Worker
-const CACHE_NAME = "cinevault-v2";
+const CACHE_NAME = "cinevault-v6";
 const BASE_PATH = self.location.pathname.replace(/sw\.js$/, "");
 
 // 安装：预缓存静态资源
@@ -66,18 +66,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 静态资源（JS/CSS/HTML）：缓存优先，网络备用
+  // 静态资源（JS/CSS/HTML）：网络优先，失败后用缓存
   if (request.destination === "script" || request.destination === "style" || request.destination === "document") {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        return cached || fetch(request).then((res) => {
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return res;
-        });
-      })
+      fetch(request).then((res) => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(request))
     );
     return;
   }
