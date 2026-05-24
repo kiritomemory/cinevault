@@ -128,41 +128,38 @@ export default function DiscoverPage() {
       {/* 顶部 Banner */}
       <BannerSection />
 
-      {/* Tab 导航 + 搜索框 */}
-      <div className="sticky top-0 z-10 glass-panel px-6">
-        {/* 电影 / 剧集 切换 */}
-        <div className="flex items-center gap-2 pt-3 pb-1">
-          <button
-            onClick={() => handleGroupChange("movie")}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${mediaGroup === "movie" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-accent/80"}`}
-          >
-            🎬 电影
-          </button>
-          <button
-            onClick={() => handleGroupChange("tv")}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${mediaGroup === "tv" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-accent/80"}`}
-          >
-            📺 剧集
-          </button>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex gap-1">
-            {currentCategories.map((cat) => (
-              <button
-                key={cat.key}
-                onClick={() => handleTabChange(cat.key)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
-                  ${activeTab === cat.key
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"}`}
-              >
-                {cat.label}
-              </button>
-            ))}
+      {/* 顶部导航栏 */}
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-black/50 border-b border-white/10 px-6">
+        {/* 第一行：电影 / 剧集 大标题切换 + 搜索 */}
+        <div className="flex items-center justify-between h-14">
+          <div className="flex items-center gap-1 bg-white/10 rounded-xl p-1">
+            <button
+              onClick={() => handleGroupChange("movie")}
+              className={`flex items-center gap-2 px-6 py-2 rounded-lg text-base font-bold transition-all duration-200 ${
+                mediaGroup === "movie"
+                  ? "bg-primary text-white shadow-lg"
+                  : "text-white/60 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <span>🎬</span>
+              <span>电影</span>
+            </button>
+            <button
+              onClick={() => handleGroupChange("tv")}
+              className={`flex items-center gap-2 px-6 py-2 rounded-lg text-base font-bold transition-all duration-200 ${
+                mediaGroup === "tv"
+                  ? "bg-primary text-white shadow-lg"
+                  : "text-white/60 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <span>📺</span>
+              <span>剧集</span>
+            </button>
           </div>
+
           {/* 右侧搜索框 */}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors ${searchFocused ? "bg-accent border-ring" : "bg-background border-border"}`}>
-            <Search size={16} className="text-muted-foreground flex-shrink-0" />
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${searchFocused ? "bg-white/15 border-primary/50 w-52" : "bg-white/5 border-white/10 w-40"}`}>
+            <Search size={15} className="text-white/50 flex-shrink-0" />
             <input
               type="text"
               value={searchQuery}
@@ -171,14 +168,31 @@ export default function DiscoverPage() {
               onBlur={() => setSearchFocused(false)}
               onKeyDown={(e) => { if (e.key === "Enter" && searchQuery.trim()) navigate(`/search?q=${encodeURIComponent(searchQuery)}`); }}
               placeholder="搜索影视..."
-              className="w-36 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30"
             />
             {searchQuery && (
-              <button onClick={() => handleSearch("")} className="text-muted-foreground hover:text-foreground">
-                <X size={14} />
+              <button onClick={() => handleSearch("")} className="text-white/40 hover:text-white">
+                <X size={13} />
               </button>
             )}
           </div>
+        </div>
+
+        {/* 第二行：分类 Tab */}
+        <div className="flex gap-0 -mb-px">
+          {currentCategories.map((cat) => (
+            <button
+              key={cat.key}
+              onClick={() => handleTabChange(cat.key)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+                activeTab === cat.key
+                  ? "border-primary text-white"
+                  : "border-transparent text-white/40 hover:text-white/70"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
       </div>
 
