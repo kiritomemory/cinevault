@@ -21,4 +21,4 @@ export interface EmbyRecentItem { name: string; series: string; seriesId: string
 export interface EmbyResumeItem { name: string; series: string; season: number; episode: number; percentage: number; }
 export interface EmbyActivity { date: string; name: string; type: string; user: string; severity: string; }
 export interface EmbyStats { totalSeries: number; totalEpisodes: number; completed: number; continuing: number; unknown: number; withGaps: number; embyMissing: number; unplayedTotal: number; libraries: { name: string; count: number; ongoing: number }[]; time: string; }
-export interface EmbyConnectResult { success: boolean; userId?: string; serverName?: string; version?: string; error?: string; seriesCount?: number; libraryCount?: number; }
+export interface EmbyConnectResult { success: boolean; userId?: string; serverName?: string; version?: string; error?: string; seriesCount?: number; libraryCount?: number; token?: string; }

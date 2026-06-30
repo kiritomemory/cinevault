@@ -10,10 +10,22 @@ export default function EmbyDashboardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const [authMode, setAuthMode] = useState<'key' | 'password'>('key');
+  const [embyUser, setEmbyUser] = useState('');
+  const [embyPw, setEmbyPw] = useState('');
+
   const handleConnect = async () => {
     setLoading(true); setError('');
-    const r = await testConnection();
+    const r = await testConnection(
+      settings.embyServer,
+      settings.embyApiKey,
+      authMode === 'password' ? embyUser : undefined,
+      authMode === 'password' ? embyPw : undefined,
+    );
     if (r.success) {
+      if (authMode === 'password' && r.token) {
+        updateSettings({ embyApiKey: r.token, embyConnected: true });
+      }
       setEmbyConnected(true, r.serverName, r.seriesCount);
     } else {
       setError(r.error ?? '连接失败');
@@ -37,6 +49,13 @@ export default function EmbyDashboardPage() {
                 value={settings.embyServer ?? ''}
                 onChange={e => updateSettings({ embyServer: e.target.value })} />
             </div>
+            <div className="flex gap-2">
+              <button onClick={() => setAuthMode('key')}
+                className={'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ' + (authMode === 'key' ? 'bg-primary text-primary-foreground' : 'bg-accent text-accent-foreground')}>API Key</button>
+              <button onClick={() => setAuthMode('password')}
+                className={'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ' + (authMode === 'password' ? 'bg-primary text-primary-foreground' : 'bg-accent text-accent-foreground')}>密码登录</button>
+            </div>
+            {authMode === 'key' ? (
             <div>
               <label className="text-xs text-muted-foreground">API Key</label>
               <input className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm"
@@ -44,6 +63,24 @@ export default function EmbyDashboardPage() {
                 value={settings.embyApiKey ?? ''}
                 onChange={e => updateSettings({ embyApiKey: e.target.value })} />
             </div>
+            ) : (
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-muted-foreground">用户名</label>
+                <input className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm"
+                  placeholder="root"
+                  value={embyUser}
+                  onChange={e => setEmbyUser(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">密码</label>
+                <input className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm"
+                  type="password" placeholder="输入密码"
+                  value={embyPw}
+                  onChange={e => setEmbyPw(e.target.value)} />
+              </div>
+            </div>
+            )}
             {error && <p className="text-red-500 text-sm flex items-center gap-1"><Wifi size={14} />{error}</p>}
             <button className="w-full py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-50"
               onClick={handleConnect} disabled={loading || !settings.embyServer || !settings.embyApiKey}>

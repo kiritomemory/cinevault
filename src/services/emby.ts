@@ -13,19 +13,60 @@ async function embyFetch<T>(path: string, params?: Record<string, string>): Prom
   } catch { return null; }
 }
 
-export async function testConnection(): Promise<EmbyConnectResult> {
-  const info = await embyFetch<any>('/System/Info');
-  if (!info) return { success: false, error: '无法连接 Emby 服务器' };
-  const users = await embyFetch<any[]>('/Users');
-  if (!users?.length) return { success: false, error: '无法获取用户信息' };
-  const uid = users.find((u: any) => u.Name === 'root')?.Id ?? users[0].Id;
-  const views = await embyFetch<any>('/Users/' + uid + '/Views');
-  const tvLibs: any[] = views?.Items?.filter((v: any) => v.CollectionType === 'tvshows') ?? [];
-  return {
-    success: true, userId: uid,
-    serverName: info.ServerName ?? '', version: info.Version ?? '',
-    seriesCount: 0, libraryCount: tvLibs.length,
-  };
+export async function testConnection(server?: string, key?: string, username?: string, password?: string): Promise<EmbyConnectResult> {
+  const s = useAppStore.getState().settings;
+  const svr = server ?? s.embyServer;
+  const apiKey = key ?? s.embyApiKey;
+
+  // Try password auth first if username provided
+  let token = apiKey;
+  if (username && password && svr) {
+    try {
+      const body = new URLSearchParams({ Username: username, Pw: password });
+      const r = await fetch(svr + '/emby/Users/AuthenticateByName', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+        body: body,
+      });
+      if (r.ok) {
+        const data = await r.json();
+        token = data.AccessToken;
+      }
+    } catch {}
+  }
+
+  if (!token || !svr) return { success: false, error: '请配置 Emby 连接信息' };
+
+  // Test with the token
+  try {
+    const r = await fetch(svr + '/emby/System/Info', {
+      headers: { 'X-Emby-Token': token, Accept: 'application/json' },
+    });
+    if (!r.ok) return { success: false, error: '无法连接 Emby 服务器' };
+    const info = await r.json();
+
+    const ru = await fetch(svr + '/emby/Users', {
+      headers: { 'X-Emby-Token': token, Accept: 'application/json' },
+    });
+    if (!ru.ok) return { success: false, error: '无法获取用户信息' };
+    const users = await ru.json();
+    const uid = users.find((u: any) => u.Name === 'root')?.Id ?? users[0]?.Id ?? '';
+
+    const rv = await fetch(svr + '/emby/Users/' + uid + '/Views', {
+      headers: { 'X-Emby-Token': token, Accept: 'application/json' },
+    });
+    const views = rv.ok ? await rv.json() : { Items: [] };
+    const tvLibs: any[] = views?.Items?.filter((v: any) => v.CollectionType === 'tvshows') ?? [];
+
+    return {
+      success: true, userId: uid,
+      serverName: info.ServerName ?? '', version: info.Version ?? '',
+      seriesCount: 0, libraryCount: tvLibs.length,
+      token: token,
+    };
+  } catch {
+    return { success: false, error: '连接失败' };
+  }
 }
 
 export async function getRecentItems(): Promise<EmbyRecentItem[]> {
