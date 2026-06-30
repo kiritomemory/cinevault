@@ -14,6 +14,7 @@ import ListsPage from "@/pages/ListsPage";
 import ListDetailPage from "@/pages/ListDetailPage";
 import DashboardPage from "@/pages/DashboardPage";
 import SettingsPage from "@/pages/SettingsPage";
+import EmbyDashboardPage from "@/pages/EmbyDashboardPage";
 
 function App() {
   const theme = useAppStore((s) => s.theme);
@@ -101,6 +102,7 @@ function App() {
             <Route path="/lists/:listId" element={<ListDetailPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/emby" element={<EmbyDashboardPage />} />
           </Routes>
         </div>
         <RightPanel />

@@ -132,7 +132,10 @@ export interface AppSettings {
   theme: "light" | "dark" | "system";
   language: string;
   region: string;
+  embyServer: string;
+  embyApiKey: string;
+  embyConnected: boolean;
 }
 
 export type ViewMode = "grid" | "list";
-export type SidebarItem = "discover" | "search" | "lists" | "dashboard" | "settings";
+export type SidebarItem = "discover" | "search" | "lists" | "dashboard" | "settings" | "emby";

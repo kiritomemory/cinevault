@@ -5,6 +5,7 @@ import { getTvDetails, getTvSeasonDetails, getImageUrl, formatDate, formatVote }
 import { saveTvShow, getMarking, setMarking, getLists, addToList } from "@/services/db";
 import { useAppStore } from "@/stores/appStore";
 import { showToast } from "@/components/Toast";
+import EmbyStatusPanel from "@/components/EmbyStatusPanel";
 import type { TVShow, CastMember, CrewMember, Video, ImageItem } from "@/types";
 
 type Tab = "overview" | "seasons" | "cast" | "media" | "recommendations";
@@ -227,6 +228,7 @@ export default function TVDetailPage() {
               <h1 className="text-2xl font-bold text-foreground mb-1">{displayTitle}</h1>
               <p className="text-sm text-muted-foreground mb-1">{originalTitle}</p>
               {tagline && <p className="text-sm italic text-muted-foreground mb-3">"{tagline}"</p>}
+              <EmbyStatusPanel tmdbId={numericId} />
               <div className="flex items-center gap-2 flex-wrap mb-4">
                 {genres?.map((g) => (
                   <span key={g.id} className="px-2 py-0.5 rounded-full bg-accent text-accent-foreground text-xs">{g.name}</span>

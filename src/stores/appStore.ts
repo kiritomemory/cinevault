@@ -5,6 +5,10 @@ import { setApiKey } from "@/services/tmdb";
 
 interface AppState {
   settings: AppSettings;
+  embyConnected: boolean;
+  embyServerName: string;
+  embySeriesCount: number;
+  setEmbyConnected: (connected: boolean, serverName?: string, count?: number) => void;
   updateSettings: (s: Partial<AppSettings>) => void;
 
   sidebarActive: SidebarItem;
@@ -41,8 +45,16 @@ export const useAppStore = create<AppState>()(
         theme: "system",
         language: "zh-CN",
         region: "CN",
+        embyServer: "",
+        embyApiKey: "",
+        embyConnected: false,
       },
-      updateSettings: (s) => {
+      embyConnected: false,
+  embyServerName: "",
+  embySeriesCount: 0,
+  setEmbyConnected: (connected, serverName = "", count = 0) => set({ embyConnected: connected, embyServerName: serverName, embySeriesCount: count }),
+
+  updateSettings: (s) => {
         const newSettings = { ...get().settings, ...s };
         if (s.apiKey) setApiKey(s.apiKey);
         set({ settings: newSettings });
@@ -76,6 +88,9 @@ export const useAppStore = create<AppState>()(
     {
       name: "cinevault-app-store",
       partialize: (state) => ({
+        embyConnected: state.embyConnected,
+        embyServerName: state.embyServerName,
+        embySeriesCount: state.embySeriesCount,
         settings: state.settings,
         theme: state.theme,
         viewMode: state.viewMode,

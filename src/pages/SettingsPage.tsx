@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
-import { KeyRound, Moon, Sun, Monitor, Globe, Save, ExternalLink, Upload, Download, CheckCircle, AlertCircle } from "lucide-react";
+import { KeyRound, Moon, Sun, Monitor, Globe, Save, ExternalLink, Upload, Download, CheckCircle, AlertCircle, Tv, Wifi, WifiOff } from "lucide-react";
 import { useAppStore } from "@/stores/appStore";
 import { setApiKey } from "@/services/tmdb";
 import { getAllMarkings, importMarkings } from "@/services/db";
+import { testConnection } from "@/services/emby";
 
 interface Props {
   setupMode?: boolean;
@@ -13,9 +14,13 @@ export default function SettingsPage({ setupMode }: Props) {
   const updateSettings = useAppStore((s) => s.updateSettings);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
+  const embyConnected = useAppStore((s) => s.embyConnected);
+  const setEmbyConnected = useAppStore((s) => s.setEmbyConnected);
   const [apiKeyInput, setApiKeyInput] = useState(settings.apiKey);
   const [saved, setSaved] = useState(false);
   const [importStatus, setImportStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [embyStatus, setEmbyStatus] = useState<{ type: string; msg: string } | null>(null);
+  const [embyTesting, setEmbyTesting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
@@ -185,7 +190,51 @@ export default function SettingsPage({ setupMode }: Props) {
           </div>
         </div>
 
+
+        {/* Emby 连接 */}
+        <div className="p-4 rounded-xl glass-panel">
+          <div className="flex items-center gap-2 mb-3">
+            <Tv size={18} className="text-primary" />
+            <h3 className="text-sm font-semibold">Emby 连接</h3>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">服务器地址</label>
+              <input value={settings.embyServer ?? ""}
+                onChange={e => updateSettings({ embyServer: e.target.value })}
+                placeholder="https://kiritomemoryemby.kooldns.cn"
+                className="w-full h-9 px-3 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">API Key</label>
+              <input type="password" value={settings.embyApiKey ?? ""}
+                onChange={e => updateSettings({ embyApiKey: e.target.value })}
+                placeholder="输入 Emby API Key"
+                className="w-full h-9 px-3 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={async () => {
+                  setEmbyTesting(true); setEmbyStatus(null);
+                  const r = await testConnection();
+                  if (r.success) { setEmbyConnected(true, r.serverName, r.seriesCount); setEmbyStatus({ type: "success", msg: "已连接 " + r.serverName + " \u00b7 " + (r.seriesCount ?? "?") + " 部" }); }
+                  else { setEmbyStatus({ type: "error", msg: r.error ?? "连接失败" }); }
+                  setEmbyTesting(false);
+                }}
+                disabled={embyTesting || !settings.embyServer || !settings.embyApiKey}
+                className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+                {embyTesting ? "测试中..." : embyConnected ? "重新连接" : "测试连接"}
+              </button>
+            </div>
+            {embyStatus && (
+              <div className={"flex items-center gap-2 text-xs p-2 rounded-lg " + (embyStatus.type === "success" ? "bg-green-500/10 text-green-600" : "bg-destructive/10 text-destructive")}>
+                {embyStatus.type === "success" ? <Wifi size={14} /> : <WifiOff size={14} />}{embyStatus.msg}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* 数据管理 */}
+
         <div className="p-4 rounded-xl glass-panel">
           <div className="flex items-center gap-2 mb-3">
             <Download size={18} className="text-primary" />

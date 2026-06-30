@@ -1,4 +1,4 @@
-import { Compass, Search, Bookmark, BarChart3, Settings, User } from "lucide-react";
+import { Compass, Search, Bookmark, BarChart3, Settings, User, Tv } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "@/stores/appStore";
 import type { SidebarItem } from "@/types";
@@ -8,6 +8,7 @@ const items: { id: SidebarItem; icon: React.ReactNode; label: string; path: stri
   { id: "search", icon: <Search size={22} />, label: "搜索", path: "/search" },
   { id: "lists", icon: <Bookmark size={22} />, label: "清单", path: "/lists" },
   { id: "dashboard", icon: <BarChart3 size={22} />, label: "看板", path: "/dashboard" },
+  { id: "emby", icon: <Tv size={22} />, label: "Emby", path: "/emby" },
 ];
 
 export default function Sidebar() {
